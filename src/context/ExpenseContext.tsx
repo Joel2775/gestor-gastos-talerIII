@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Expense } from '@/types/expense';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getAllExpenses, insertExpense } from '@/database/expenseRepository';
+import {
+  deleteExpense as deleteExpenseRecord,
+  getAllExpenses,
+  insertExpense,
+  updateExpense as updateExpenseRecord,
+} from '@/database/expenseRepository';
  
 interface ExpenseContextType {
   expenses: Expense[];
@@ -9,6 +14,10 @@ interface ExpenseContextType {
   isLoading: boolean;
   // Ahora devuelve una Promise porque guardar en el telefono es asincrono
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
+  sortByAmount: boolean;
+  toggleSortByAmount: () => void;
   getMonthlyTotal: () => number;
   getCurrentMonthExpenses: () => Expense[];
 }
@@ -23,6 +32,7 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
   const db = useSQLiteContext();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortByAmount, setSortByAmount] = useState(false);
  
   // Se ejecuta al montar el Provider (al abrir la app).
   // db va en las dependencias porque se usa adentro; no cambia mientras la app esta abierta.
@@ -58,19 +68,37 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     // Va al principio para que el ultimo gasto salga arriba
     setExpenses((prev) => [newExpense, ...prev]);
   };
+
+  const updateExpense = async (expense: Expense) => {
+    await updateExpenseRecord(db, expense);
+    setExpenses((prev) => prev.map((item) => item.id === expense.id ? expense : item));
+  };
+
+  const deleteExpense = async (id: string) => {
+    await deleteExpenseRecord(db, id);
+    setExpenses((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const toggleSortByAmount = () => setSortByAmount((current) => !current);
  
   const getCurrentMonthExpenses = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
  
-    return expenses.filter((expense) => {
+    const currentMonthExpenses = expenses.filter((expense) => {
       const expenseDate = new Date(expense.date);
       return (
         expenseDate.getMonth() === currentMonth &&
         expenseDate.getFullYear() === currentYear
       );
     });
+
+    return currentMonthExpenses.sort((a, b) =>
+      sortByAmount
+        ? b.amount - a.amount
+        : b.date.getTime() - a.date.getTime()
+    );
   };
  
   const getMonthlyTotal = () => {
@@ -86,6 +114,10 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
         expenses,
         isLoading,
         addExpense,
+        updateExpense,
+        deleteExpense,
+        sortByAmount,
+        toggleSortByAmount,
         getMonthlyTotal,
         getCurrentMonthExpenses,
       }}

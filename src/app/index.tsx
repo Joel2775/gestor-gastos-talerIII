@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -8,12 +8,46 @@ import { ExpenseItem } from '@/components/ExpenseItem';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
 import { useExpenses } from '@/context/ExpenseContext';
 import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { Expense } from '@/types/expense';
 
 // Pantalla principal: total del mes, lista de gastos y el boton + para agregar
 export default function HomeScreen() {
-  const { getCurrentMonthExpenses, isLoading } = useExpenses();
+  const {
+    getCurrentMonthExpenses,
+    isLoading,
+    sortByAmount,
+    toggleSortByAmount,
+    deleteExpense,
+  } = useExpenses();
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense>();
+  const [modalSession, setModalSession] = useState(0);
   const expenses = getCurrentMonthExpenses();
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setEditingExpense(undefined);
+  };
+
+  const confirmDeleteExpense = (expense: Expense) => {
+    Alert.alert(
+      'Eliminar gasto',
+      '¿Quieres eliminar este gasto? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            void deleteExpense(expense.id).catch((error: unknown) => {
+              console.error('Error al eliminar el gasto', error);
+              Alert.alert('Error', 'No se pudo eliminar el gasto. Intenta de nuevo.');
+            });
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -33,6 +67,20 @@ export default function HomeScreen() {
 
             <MonthlyHeader />
 
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={toggleSortByAmount}
+              accessibilityRole="button"
+              accessibilityLabel={
+                sortByAmount
+                  ? 'Ordenar gastos por fecha'
+                  : 'Ordenar gastos de mayor a menor monto'
+              }
+            >
+              <Text style={styles.sortButtonText}>
+                {sortByAmount ? 'Ordenar por fecha ↓' : 'Ordenar por monto ↓'}
+              </Text>
+            </TouchableOpacity>
 
             {/* Mientras se leen los datos guardados se muestra un indicador;
                 sin esto se veria un instante el mensaje de "no hay gastos" */}
@@ -55,7 +103,16 @@ export default function HomeScreen() {
                 data={expenses}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item, index }) => (
-                  <ExpenseItem expense={item} index={index} />
+                  <ExpenseItem
+                    expense={item}
+                    index={index}
+                    onEdit={(selectedExpense) => {
+                      setEditingExpense(selectedExpense);
+                      setModalSession((current) => current + 1);
+                      setModalVisible(true);
+                    }}
+                    onDelete={confirmDeleteExpense}
+                  />
                 )}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
@@ -66,7 +123,11 @@ export default function HomeScreen() {
           {/* Boton + de la esquina */}
           <TouchableOpacity
             style={styles.fab}
-            onPress={() => setModalVisible(true)}
+            onPress={() => {
+              setEditingExpense(undefined);
+              setModalSession((current) => current + 1);
+              setModalVisible(true);
+            }}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -80,8 +141,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <AddExpenseModal
+            key={modalSession}
             visible={modalVisible}
-            onClose={() => setModalVisible(false)}
+            onClose={closeModal}
+            expense={editingExpense}
           />
         </SafeAreaView>
       </LinearGradient>
@@ -135,6 +198,21 @@ const styles = StyleSheet.create({
     color: LiquidGlassColors.glassText,
     marginBottom: Spacing.three,
     textAlign: 'center',
+  },
+  sortButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    marginBottom: Spacing.two,
+    borderRadius: Spacing.two,
+    borderWidth: 1,
+    borderColor: LiquidGlassColors.glassBorder,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+  },
+  sortButtonText: {
+    color: LiquidGlassColors.glassText,
+    fontSize: 13,
+    fontWeight: '600',
   },
   listContent: {
     paddingBottom: 100,

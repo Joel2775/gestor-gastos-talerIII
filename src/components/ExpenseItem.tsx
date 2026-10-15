@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Expense, CATEGORY_ICONS } from '@/types/expense';
@@ -9,10 +9,17 @@ import { LiquidGlassColors, Spacing } from '@/constants/theme';
 interface ExpenseItemProps {
   expense: Expense;
   index: number; // sirve para que cada fila entre un poquito despues de la anterior
+  onEdit: (expense: Expense) => void;
+  onDelete: (expense: Expense) => void;
 }
 
 // Una fila de la lista de gastos
-export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index }) => {
+export const ExpenseItem: React.FC<ExpenseItemProps> = ({
+  expense,
+  index,
+  onEdit,
+  onDelete,
+}) => {
   // Queda algo como "15 oct"
   const formattedDate = new Date(expense.date).toLocaleDateString('es-ES', {
     day: '2-digit',
@@ -51,11 +58,32 @@ export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index }) => {
                   {expense.description}
                 </Text>
               )}
+              {expense.invoiceUri && (
+                <Text style={styles.invoiceIndicator}>📎 Factura adjunta</Text>
+              )}
             </View>
           </View>
           <View style={styles.rightSection}>
             <Text style={styles.amount}>{formattedAmount}</Text>
             <Text style={styles.date}>{formattedDate}</Text>
+            <View style={styles.actions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Editar gasto de ${formattedAmount}`}
+                onPress={() => onEdit(expense)}
+                style={styles.actionButton}
+              >
+                <Text style={styles.actionText}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Eliminar gasto de ${formattedAmount}`}
+                onPress={() => onDelete(expense)}
+                style={styles.actionButton}
+              >
+                <Text style={[styles.actionText, styles.deleteText]}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </GlassCard>
@@ -103,6 +131,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: LiquidGlassColors.glassTextSecondary,
   },
+  invoiceIndicator: {
+    fontSize: 12,
+    color: LiquidGlassColors.glassTextSecondary,
+    marginTop: Spacing.one,
+  },
   rightSection: {
     alignItems: 'flex-end',
   },
@@ -115,5 +148,21 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     color: LiquidGlassColors.glassTextSecondary,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  actionButton: {
+    paddingVertical: Spacing.one,
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: LiquidGlassColors.secondary,
+  },
+  deleteText: {
+    color: '#B42318',
   },
 });
